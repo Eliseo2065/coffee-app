@@ -44,18 +44,22 @@ rango_fechas = st.sidebar.date_input(
 categorias = st.sidebar.multiselect(
     "🏷️ Categoría",
     options=sorted(df["categoria"].unique()),
-    default=df["categoria"].unique()
+    default=sorted(df["categoria"].unique())
 )
 
 productos = st.sidebar.multiselect(
     "☕ Producto",
     options=sorted(df["producto"].unique()),
-    default=df["producto"].unique()
+    default=sorted(df["producto"].unique())
 )
 
 metrica = st.sidebar.selectbox(
     "📊 Métrica principal",
-    ["venta_total", "ganancia", "cantidad"]
+    {
+        "Ventas ($)": "venta_total",
+        "Ganancia ($)": "ganancia",
+        "Unidades vendidas": "cantidad"
+    }
 )
 
 # ---------------------------------
@@ -68,13 +72,29 @@ df_filtrado = df[
 ]
 
 # ---------------------------------
+# Validación: datos vacíos
+# ---------------------------------
+if df_filtrado.empty:
+    st.warning("⚠️ No hay datos para los filtros seleccionados.")
+    st.stop()
+
+# ---------------------------------
 # KPIs
 # ---------------------------------
-col1, col2, col3 = st.columns(3)
+ventas_totales = df_filtrado["venta_total"].sum()
+unidades = df_filtrado["cantidad"].sum()
+ganancia_total = df_filtrado["ganancia"].sum()
 
-col1.metric("💰 Ventas Totales", f"${df_filtrado['venta_total'].sum():,.0f}")
-col2.metric("📦 Unidades Vendidas", int(df_filtrado["cantidad"].sum()))
-col3.metric("🧮 Ganancia Total", f"${df_filtrado['ganancia'].sum():,.0f}")
+ticket_promedio = ventas_totales / len(df_filtrado)
+margen = (ganancia_total / ventas_totales) * 100 if ventas_totales > 0 else 0
+
+col1, col2, col3, col4, col5 = st.columns(5)
+
+col1.metric("💰 Ventas Totales", f"${ventas_totales:,.0f}")
+col2.metric("📦 Unidades Vendidas", int(unidades))
+col3.metric("🧮 Ganancia Total", f"${ganancia_total:,.0f}")
+col4.metric("🧾 Ticket Promedio", f"${ticket_promedio:,.0f}")
+col5.metric("📈 Margen", f"{margen:.1f}%")
 
 st.divider()
 
@@ -107,6 +127,23 @@ ventas_producto = (
 st.bar_chart(ventas_producto)
 
 # ---------------------------------
+# Top 5 productos
+# ---------------------------------
+st.subheader("🏆 Top 5 Productos")
+
+top_5 = (
+    df_filtrado
+    .groupby("producto")[metrica]
+    .sum()
+    .sort_values(ascending=False)
+    .head(5)
+)
+
+st.bar_chart(top_5)
+
+
+
+# ---------------------------------
 # Evolución temporal
 # ---------------------------------
 st.subheader("📈 Evolución en el Tiempo")
@@ -124,4 +161,5 @@ st.line_chart(ventas_tiempo)
 # ---------------------------------
 st.subheader("📋 Datos Detallados")
 st.dataframe(df_filtrado, use_container_width=True)
+
 
